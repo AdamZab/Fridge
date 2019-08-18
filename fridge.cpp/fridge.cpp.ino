@@ -65,10 +65,11 @@ void setup() {
 }
 
 void loop() {
-  
-    //if (status != WL_CONNECTED)
-        //connect();
-  
+    //connecting
+    if (status != WL_CONNECTED)
+        connect();
+
+    //scales
     readWeight(1);
     calculateFill(currentWeight, 1);
     currentWeight1 = currentWeight;
@@ -77,7 +78,8 @@ void loop() {
     calculateFill(currentWeight, 2);
     currentWeight2 = currentWeight;
     currentFill2 = currentFill;
-    
+
+    //printing
     printSerial(currentFill1, currentFill2, currentWeight1, currentWeight2);
     u8g2.clearBuffer();
     printOLED(currentFill1, currentWeight1, 1);
@@ -91,7 +93,7 @@ void loop() {
     
     
     
-    
+// todo: preparing message for push in function 
     /*message = "Scale 1: ";
     if(currentFill1 < 1){
             message += String("empty");
@@ -105,35 +107,35 @@ void loop() {
     }*/
 
 
-    //daily message at 16:00
+//daily message at 16:00 - to do: put it in function
     if((ntpClient.getUnixTime()  % 86400L) / 3600 == 18 && dailyMessageSent == false){  
         sendNotification(message);
         printTime();  
         dailyMessageSent = true;
     }
 
-    //message: empty, 0-20%
-    if(currentFill1 < 1 && fillMessageSent1 == false && ntpClient.getUnixTime() > (hourTimer1 + 3600)){
+//message: empty, 0-20% - to do: put it in function without repeating
+    if(currentFill1 < 1 && fillMessageSent1 == false && ntpClient.getUnixTime() > (hourTimer1 + 3600)){ //empty & ater 1hour
         sendNotification(message);
         printTime();
         fillMessageSent1 = true;
     }
-    else if(currentFill1 < 20 && currentFill1 > 1 && fillMessageSent1 == false){
+    else if(currentFill1 < 20 && currentFill1 > 1 && fillMessageSent1 == false){ //below 20%
         sendNotification(message);
         fillMessageSent1 = true;
     }
   
-    if(currentFill2 < 1 && fillMessageSent2 == false && ntpClient.getUnixTime() > (hourTimer2 + 3600)){
+    if(currentFill2 < 1 && fillMessageSent2 == false && ntpClient.getUnixTime() > (hourTimer2 + 3600)){ //empty & ater 1hour
         sendNotification(message);
         printTime();
         fillMessageSent2 = true;
     }
-    else if(currentFill2 < 20 && currentFill2 > 1 &&  fillMessageSent2 == false){
+    else if(currentFill2 < 20 && currentFill2 > 1 &&  fillMessageSent2 == false){ //below 20%
         sendNotification(message);
         fillMessageSent2 = true;
     }
 
-    //reset flags
+//reset flags - to do: put it in function
     if((ntpClient.getUnixTime()  % 86400L) / 3600 == 17)
         dailyMessageSent = false;
     if(currentFill1 > 21){

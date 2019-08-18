@@ -1,2 +1,2 @@
-#define SECRET_SSID <"ssid">
-#define SECRET_PASS <"pass">
+#define SECRET_SSID "UPC478E2F4"
+#define SECRET_PASS "fsfxhtfT4hxt"

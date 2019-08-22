@@ -14,10 +14,10 @@ Additionaly OLED display is added, and has functions:
 - printing weight status in % and brutto weight of both scales
 
 To do:
-- create a function to prepare push messages (not working after adding OLED and separating everything into functions)
+- create a function to prepare push messages (not working after adding OLED and separating everything into functions) - done
 - put send message conditions into functions
 - put reset flags into functions
-- change connecting - after 3 resets start working anyway, just put information "no WiFi" on OLED (now when there is no connection it resets after every 10 attempts)
+- change connecting - at setup try 10 times, reset, try 10 times and so on. In loop try once and inform that there is no connection - done
 
 
 If everything will be done, rotary encoder will be added with functions:

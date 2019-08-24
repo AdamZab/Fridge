@@ -11,18 +11,15 @@
 
 //Scales
 const int numberOfScales = 2;
-#define LOADCELL0_DOUT_PIN 6
-#define LOADCELL0_SCK_PIN 5
-#define SCALE_FACTOR0 381410
-HX711 scale0;
-#define LOADCELL1_DOUT_PIN 11
-#define LOADCELL1_SCK_PIN 10
-#define SCALE_FACTOR1 393860
-HX711 scale1;
+const char LOADCELL_DOUT_PIN[numberOfScales] = {6, 11};
+const char LOADCELL_SCK_PIN[numberOfScales] = {5, 10};
+const long SCALE_FACTOR[numberOfScales] = {381410, 393860};
+HX711 scale[numberOfScales];
 const float netto[numberOfScales] = {50.0f, 500.0f};
 const float brutto[numberOfScales] = {100.0f, 1000.0f};
 #define MINIMUM_FILL 1
 #define MAXIMUM_FILL 20
+
 
 //WiFi connection
 char ssid[] = SECRET_SSID;
@@ -65,14 +62,12 @@ void setup() {
     u8g2.setFont(u8g2_font_ncenB08_tr);
     u8g2.clearBuffer();
     connect(true);
-    scales0.begin(LOADCELL0_DOUT_PIN, LOADCELL0_SCK_PIN);
-    scales0.set_scale(SCALE_FACTOR0);  
-    scales0.tare();    
-    scale1.begin(LOADCELL1_DOUT_PIN, LOADCELL1_SCK_PIN);
-    scale1.set_scale(SCALE_FACTOR1);  
-    scale1.tare();
-    resetFlagsAndTimers();
-    
+    for(int scaleID = 0; scaleID < numberOfScales; ++scaleID){
+        scale[scaleID].begin(LOADCELL_DOUT_PIN[scaleID], LOADCELL_SCK_PIN[scaleID]);
+        scale[scaleID].set_scale(SCALE_FACTOR[scaleID]);  
+        scale[scaleID].tare();
+        resetFlagsAndTimers(scaleID);     
+    }  
 }
 
 
@@ -137,22 +132,17 @@ void connect(bool ifSetup){
   }
 }
 
-void resetFlagsAndTimers(){
-      for(int scaleID = 0; scaleID < numberOfScales; ++scaleID){
+void resetFlagsAndTimers(int scaleID){
         ::fillPushMessageSentFlags[scaleID] = false;
         ::oneHourPushMessageSentFlags[scaleID] = false;
         ::dailyPushMessageSent = false;
         ::oneHourTimers[scaleID] = 0;
-      }
 }
 
 float readWeight(float currentWeight, int scaleID){
     float temporaryWeight = 0.0f;
     while(true){
-        if(scaleID == 0)
-            currentWeight = scale0.get_units(5) * 1000;
-        else
-            currentWeight = scale1.get_units(5) * 1000;
+        currentWeight = scale[scaleID].get_units(5) * 1000;
         int equal = currentWeight - temporaryWeight;
         if(fabs(equal) < 2)
             break;

@@ -64,16 +64,15 @@ void setup() {
     u8g2.begin();
     u8g2.setFont(u8g2_font_ncenB08_tr);
     u8g2.clearBuffer();
-    //connect(true);
-    for(int scaleID = 0; scaleID < numberOfScales; ++scaleID){
-        scales[scaleID].begin(LOADCELL0_DOUT_PIN, LOADCELL0_SCK_PIN);
-        scales[scaleID].set_scale(SCALE_FACTOR0);  
-        scales[scaleID].tare();    
-        //scale1.begin(LOADCELL1_DOUT_PIN, LOADCELL1_SCK_PIN);
-        //scale1.set_scale(SCALE_FACTOR1);  
-        //scale1.tare();
-        resetFlagsAndTimers();
-    }
+    connect(true);
+    scales0.begin(LOADCELL0_DOUT_PIN, LOADCELL0_SCK_PIN);
+    scales0.set_scale(SCALE_FACTOR0);  
+    scales0.tare();    
+    scale1.begin(LOADCELL1_DOUT_PIN, LOADCELL1_SCK_PIN);
+    scale1.set_scale(SCALE_FACTOR1);  
+    scale1.tare();
+    resetFlagsAndTimers();
+    
 }
 
 
@@ -83,7 +82,7 @@ void loop() {
     if(status != WL_CONNECTED){
         u8g2.drawStr(105, 25,"NO");
         u8g2.drawStr(100, 35,"WiFi");
-        //connect(false);
+        connect(false);
     }
 
     printTime();
@@ -139,10 +138,12 @@ void connect(bool ifSetup){
 }
 
 void resetFlagsAndTimers(){
-      ::fillPushMessageSentFlags[scaleID] = false;
-      ::oneHourPushMessageSentFlags[scaleID] = false;
-      ::dailyPushMessageSent = false;
-      ::oneHourTimers[scaleID] = 0;
+      for(int scaleID = 0; scaleID < numberOfScales; ++scaleID){
+        ::fillPushMessageSentFlags[scaleID] = false;
+        ::oneHourPushMessageSentFlags[scaleID] = false;
+        ::dailyPushMessageSent = false;
+        ::oneHourTimers[scaleID] = 0;
+      }
 }
 
 float readWeight(float currentWeight, int scaleID){

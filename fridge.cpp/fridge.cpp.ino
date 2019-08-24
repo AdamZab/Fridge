@@ -1,3 +1,4 @@
+//Libraries
 #include "HX711.h"
 #include <SPI.h>
 #include <WiFiNINA.h>
@@ -6,129 +7,106 @@
 #include <WiFiUdp.h>
 #include <Arduino.h>
 #include <U8g2lib.h>
+#include <Vector.h>
 
-
-//scales
-const int LOADCELL1_DOUT_PIN = 6;
-const int LOADCELL1_SCK_PIN = 5;
-const long scaleFactor1 = 381410;
-const float netto1 = 50.0f;
-const float brutto1 = 100.0f;
+//Scales
+const int numberOfScales = 2;
+#define LOADCELL0_DOUT_PIN 6
+#define LOADCELL0_SCK_PIN 5
+#define SCALE_FACTOR0 381410
+HX711 scale0;
+#define LOADCELL1_DOUT_PIN 11
+#define LOADCELL1_SCK_PIN 10
+#define SCALE_FACTOR1 393860
 HX711 scale1;
-const int LOADCELL2_DOUT_PIN = 11;
-const int LOADCELL2_SCK_PIN = 10;
-const long scaleFactor2 = 393860;
-const float netto2 = 500.0f;
-const float brutto2 = 1000.0f;
-HX711 scale2;
-int scaleID;
-float currentWeight, currentFill, currentFill1, currentFill2;
+const float netto[numberOfScales] = {50.0f, 500.0f};
+const float brutto[numberOfScales] = {100.0f, 1000.0f};
+#define MINIMUM_FILL 1
+#define MAXIMUM_FILL 20
 
 //WiFi connection
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
 int status = WL_IDLE_STATUS;
 
-//time
+//Time
+#define POLAND_LOCAL_TIME 7200
+#define SECONDS_IN_ONE_DAY 86400
+#define SECONDS_IN_ONE_HOUR 3600
+#define SECONDS_IN_ONE_MINUTE 60
+#define TIME_OF_DAILY_MESSAGE 16
 WiFiUDP udp;
-EasyNTPClient ntpClient(udp, "pool.ntp.org", (60*60*2));
+EasyNTPClient ntpClient(udp, "pool.ntp.org", POLAND_LOCAL_TIME);
 
-//push
+
+//Push
+#define CONNECTION_PORT 80
 const char* logServer = "api.pushingbox.com";
 String deviceId = "v6ED79EFFEB2DD3F";
-String message;
 
-//flags
-bool oneHourMessageSent1= false , oneHourMessageSent2 = false;
-bool fillMessageSent1 = false, fillMessageSent2 = false;
-long long oneHourTimer1 = 0, oneHourTimer2 = 0;
-bool dailyMessageSent = false;
+//Oled
+#define OLED_SCK_PIN A4
+#define OLED_SDA_PIN A5
+U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, OLED_SCK_PIN, OLED_SDA_PIN, U8X8_PIN_NONE);
 
+//SerialPort
+#define SERIAL_PORT_BAUD 9600
 
-//OLED
-U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, A4, A5, U8X8_PIN_NONE);
+//Flags
+bool fillPushMessageSentFlags[numberOfScales];
+bool oneHourPushMessageSentFlags[numberOfScales];
+bool dailyPushMessageSent = false;
+bool checkIfSendPushMessage = false;
+long long oneHourTimers[numberOfScales];
 
 void setup() {
-    Serial.begin(9600);
+    Serial.begin(SERIAL_PORT_BAUD);
     u8g2.begin();
     u8g2.setFont(u8g2_font_ncenB08_tr);
     u8g2.clearBuffer();
-    connect(true);
-  
-    //scales
-    scale1.begin(LOADCELL1_DOUT_PIN, LOADCELL1_SCK_PIN);
-    scale1.set_scale(scaleFactor1);  
-    scale1.tare();    
-    scale2.begin(LOADCELL2_DOUT_PIN, LOADCELL2_SCK_PIN);
-    scale2.set_scale(scaleFactor2);  
-    scale2.tare();
+    //connect(true);
+    for(int scaleID = 0; scaleID < numberOfScales; ++scaleID){
+        scales[scaleID].begin(LOADCELL0_DOUT_PIN, LOADCELL0_SCK_PIN);
+        scales[scaleID].set_scale(SCALE_FACTOR0);  
+        scales[scaleID].tare();    
+        //scale1.begin(LOADCELL1_DOUT_PIN, LOADCELL1_SCK_PIN);
+        //scale1.set_scale(SCALE_FACTOR1);  
+        //scale1.tare();
+        resetFlagsAndTimers();
+    }
 }
-
-
 
 
 void loop() {
     u8g2.clearBuffer();
     
-    if (status != WL_CONNECTED){
+    if(status != WL_CONNECTED){
         u8g2.drawStr(105, 25,"NO");
         u8g2.drawStr(100, 35,"WiFi");
-        connect(false);
+        //connect(false);
     }
 
-    message = "";
-    bool sendMessage = false;
+    printTime();
+
+    String pushMessage = "";
+    ::checkIfSendPushMessage = false;
     
-    for (scaleID = 1; scaleID <= 2; ++scaleID){
-        readWeight(scaleID);
-        calculateFill(currentWeight, scaleID);
-        printSerial(currentFill, currentWeight, scaleID);
-        printOLED(currentFill, currentWeight, scaleID);
-        prepareMessage(currentFill, scaleID);        
-        if(scaleID == 1)
-            currentFill1 = currentFill;
-        else
-            currentFill2 = currentFill;
+    
+    for(int scaleID = 0; scaleID < numberOfScales; ++scaleID){
+        float currentWeight, currentFill;
+        currentWeight = readWeight(currentWeight, scaleID);
+        currentFill = calculateFill(currentWeight, currentFill, scaleID);
+        printSerialPortMessage(currentFill, currentWeight, scaleID);
+        printOledMessage(currentFill, currentWeight, scaleID);
+        pushMessage = preparePushMessage(pushMessage, currentFill, scaleID);
+        startOneHourTimerIfEmpty(currentFill,  scaleID);
+        checkIfSendEmptyPushMessage(currentFill, scaleID);
+        checkIfSendFillPushMessage(currentFill, scaleID);
     }
+    checkIfSendDailyPushMessage();
     u8g2.sendBuffer();
-   
-    if((ntpClient.getUnixTime()  % 86400L) / 3600 == 16 && dailyMessageSent == false){  
-        sendMessage = true; 
-        dailyMessageSent = true;
-    }
-    
-    if(currentFill1 < 1 &&  oneHourTimer1 == 0){
-        oneHourTimer1 = ntpClient.getUnixTime() + (60 * 1);
-        fillMessageSent1 = false;
-    }
-    
-    if(currentFill1 < 1 && oneHourMessageSent1 == false && oneHourTimer1 < ntpClient.getUnixTime()){
-        sendMessage = true;
-        oneHourMessageSent1 = true;
-    }
-    else if(currentFill1 > 1 && currentFill1 < 20 && fillMessageSent1 == false){
-        sendMessage = true;
-        fillMessageSent1 = true;
-        oneHourMessageSent1 = false;
-    }
-    
-    if(currentFill2 < 1 &&  oneHourTimer2 == 0){
-        oneHourTimer2 = ntpClient.getUnixTime() + (60 * 3);
-        fillMessageSent2 = false;
-    }
-    
-    if(currentFill2 < 1 && oneHourMessageSent2 == false && oneHourTimer2 < ntpClient.getUnixTime()){
-        sendMessage = true;
-        oneHourMessageSent2 = true;
-    }
-    else if(currentFill2 > 1 && currentFill2 < 20 && fillMessageSent2 == false){
-        sendMessage = true;
-        fillMessageSent2 = true;
-        oneHourMessageSent2 = false;
-    }
-
-    if(sendMessage == true)
-        sendNotification(message);
+    if(checkIfSendPushMessage == true)
+        sendPushMessage(pushMessage);
 }
 
 void connect(bool ifSetup){
@@ -160,14 +138,20 @@ void connect(bool ifSetup){
   }
 }
 
-float readWeight(int scaleID){
+void resetFlagsAndTimers(){
+      ::fillPushMessageSentFlags[scaleID] = false;
+      ::oneHourPushMessageSentFlags[scaleID] = false;
+      ::dailyPushMessageSent = false;
+      ::oneHourTimers[scaleID] = 0;
+}
+
+float readWeight(float currentWeight, int scaleID){
     float temporaryWeight = 0.0f;
-    currentWeight = 0.0f;
     while(true){
-        if(scaleID == 1)
-            currentWeight = scale1.get_units(5) * 1000;
+        if(scaleID == 0)
+            currentWeight = scale0.get_units(5) * 1000;
         else
-            currentWeight = scale2.get_units(5) * 1000;
+            currentWeight = scale1.get_units(5) * 1000;
         int equal = currentWeight - temporaryWeight;
         if(fabs(equal) < 2)
             break;
@@ -176,19 +160,12 @@ float readWeight(int scaleID){
     return currentWeight;
 }
 
-float calculateFill(float currentWeight, int scaleID){ 
-    currentFill = 0.0f;   
-    if(scaleID == 1){
-        float currentFill = ((currentWeight - (brutto1 - netto1)) * 100) / netto1;
-        return currentFill;
-    }
-    else{
-        currentFill = ((currentWeight - (brutto2 - netto2)) * 100) / netto2;
-    }
+float calculateFill(float currentWeight, float currentFill, int scaleID){ 
+    currentFill = ((currentWeight - (brutto[scaleID] - netto[scaleID])) * 100) / netto[scaleID];
     return currentFill;
 }
 
-void printSerial(float currentFill, float currentWeight, int scaleID){  
+void printSerialPortMessage(float currentFill, float currentWeight, int scaleID){  
     Serial.print("Scale ");
     Serial.print(scaleID);
     Serial.print(": ");
@@ -198,47 +175,79 @@ void printSerial(float currentFill, float currentWeight, int scaleID){
     Serial.println("g");
 }
 
-void printOLED(float currentFill, float currentWeight, int scaleID){
-    u8g2.drawStr(0,scaleID*30-20,"Scale");
-    u8g2.setCursor(30,scaleID*30-20);
+void printOledMessage(float currentFill, float currentWeight, int scaleID){
+    u8g2.drawStr(0,scaleID*30+10,"Scale");
+    u8g2.setCursor(30,scaleID*30+10);
     u8g2.print(scaleID, 1);
-    u8g2.drawStr(36,scaleID*30-20,":");
-    if(currentFill > 1){
-        u8g2.setCursor(45,scaleID*30-20);
+    u8g2.drawStr(36,scaleID*30+10,":");
+    if(currentFill > MINIMUM_FILL){
+        u8g2.setCursor(45,scaleID*30+10);
         u8g2.print(currentFill, 0);
-        u8g2.drawStr(80,scaleID*30-20,"%");
+        u8g2.drawStr(80,scaleID*30+10,"%");
     }
     else
-        u8g2.drawStr(45,scaleID*30-20,"empty");
-    u8g2.setCursor(45,scaleID*30-10);
+        u8g2.drawStr(45,scaleID*30+10,"empty");
+    u8g2.setCursor(45,scaleID*30+20);
     u8g2.print(currentWeight, 0);
-    u8g2.drawStr(80,scaleID*30-10,"g");
+    u8g2.drawStr(80,scaleID*30+20,"g");
 }
 
-String prepareMessage(float currentFill, int scaleID){
-    message += "Scale ";
-    message += String(scaleID);
-    message += ": ";
-    if(currentFill < 1)
-        message += String("empty");
+String preparePushMessage(String pushMessage, float currentFill, int scaleID){
+    pushMessage += "Scale ";
+    pushMessage += String(scaleID);
+    pushMessage += ": ";
+    if(currentFill < MINIMUM_FILL)
+        pushMessage += String("empty");
     else{
-        message += String(currentFill);
-        message += "%"; 
+        pushMessage += String(currentFill);
+        pushMessage += "%"; 
     } 
-    message += "\n";
-    return message;
+    pushMessage += "\n";
+    return pushMessage;
 }
 
-void sendNotification(String message){
+void checkIfSendDailyPushMessage(){
+    if((ntpClient.getUnixTime()  % SECONDS_IN_ONE_DAY) / SECONDS_IN_ONE_HOUR == 7)
+        ::dailyPushMessageSent = false;
+    if((ntpClient.getUnixTime()  % SECONDS_IN_ONE_DAY) / SECONDS_IN_ONE_HOUR == TIME_OF_DAILY_MESSAGE && dailyPushMessageSent == false){
+        ::dailyPushMessageSent = true;
+        ::checkIfSendPushMessage = true;
+    }
+}  
+
+void startOneHourTimerIfEmpty(float currentFill, int scaleID){
+    if(currentFill < MINIMUM_FILL &&  oneHourTimers[scaleID] == 0){
+        ::oneHourTimers[scaleID] = ntpClient.getUnixTime() + SECONDS_IN_ONE_HOUR;
+        ::fillPushMessageSentFlags[scaleID] = false;
+    }
+}
+
+void checkIfSendEmptyPushMessage(float currentFill, int scaleID){
+    if(currentFill < MINIMUM_FILL && oneHourPushMessageSentFlags[scaleID] == false && oneHourTimers[scaleID] < ntpClient.getUnixTime()){
+        ::oneHourPushMessageSentFlags[scaleID] = true;
+        ::checkIfSendPushMessage = true;
+    }
+}   
+ 
+bool checkIfSendFillPushMessage(float currentFill, int scaleID){
+    if(currentFill > MINIMUM_FILL && currentFill < MAXIMUM_FILL && fillPushMessageSentFlags[scaleID] == false){
+        ::fillPushMessageSentFlags[scaleID] = true;
+        ::oneHourPushMessageSentFlags[scaleID] = false;
+        ::checkIfSendPushMessage = true;
+    }
+} 
+
+void sendPushMessage(String pushMessage){
     WiFiClient client;
-    if (client.connect(logServer, 80)) {
+    Serial.println("pushMessage:");
+    Serial.println(pushMessage);
+    if (client.connect(logServer, CONNECTION_PORT)) {
     Serial.println("Client connected"); 
-    Serial.println(message);
+    Serial.println(pushMessage);
     String postStr = "devid=";
     postStr += String(deviceId);
     postStr += "&message_parameter=";
-    postStr += String(message);
-    postStr += "\r\n\r\n";
+    postStr += String(pushMessage);
     client.print("POST /pushingbox HTTP/1.1\n");
     client.print("Host: api.pushingbox.com\n");
     client.print("Connection: close\n");
@@ -253,18 +262,18 @@ void sendNotification(String message){
 
 void printTime(){
     Serial.print("The UTC time is ");
-    Serial.print((ntpClient.getUnixTime()  % 86400L) / 3600); 
+    Serial.print((ntpClient.getUnixTime()  % SECONDS_IN_ONE_DAY) / SECONDS_IN_ONE_HOUR); 
     Serial.print(':');
-    if (((ntpClient.getUnixTime() % 3600) / 60) < 10) {
+    if (((ntpClient.getUnixTime() % SECONDS_IN_ONE_HOUR) / SECONDS_IN_ONE_MINUTE) < 10) {
       
       Serial.print('0');
     }
-    Serial.print((ntpClient.getUnixTime()  % 3600) / 60);
+    Serial.print((ntpClient.getUnixTime()  % SECONDS_IN_ONE_HOUR) / SECONDS_IN_ONE_MINUTE);
     Serial.print(':');
-    if ((ntpClient.getUnixTime() % 60) < 10) {
+    if ((ntpClient.getUnixTime() % SECONDS_IN_ONE_MINUTE) < 10) {
       Serial.print('0');
     }
-    Serial.println(ntpClient.getUnixTime() % 60); 
+    Serial.println(ntpClient.getUnixTime() % SECONDS_IN_ONE_MINUTE); 
 }
 
 void softReset(){

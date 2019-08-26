@@ -1,4 +1,4 @@
-/*#include "HX711.h" 
+#include "HX711.h" 
 
 const int NUMBER_OF_SCALES = 2;
 const char LOADCELL_SDA_PIN[NUMBER_OF_SCALES] = {6, 11};
@@ -34,4 +34,3 @@ calibration() {
   float scaleFactor=(currentWeight1/0.145);  // znana waga
   Serial.println(scaleFactor1);              // wartosc uzyta w scale.setScale();
 }
-*/

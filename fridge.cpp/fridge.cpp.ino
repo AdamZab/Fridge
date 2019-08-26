@@ -15,13 +15,12 @@ const char LOADCELL_SDA_PIN[NUMBER_OF_SCALES] = {6, 11};
 const char LOADCELL_SCL_PIN[NUMBER_OF_SCALES] = {5, 10};
 const long SCALE_FACTOR[NUMBER_OF_SCALES] = {381410, 393860};
 HX711 scale[NUMBER_OF_SCALES];
-const float netto[NUMBER_OF_SCALES] = {50.0f, 500.0f};
-const float brutto[NUMBER_OF_SCALES] = {100.0f, 1000.0f};
+const float NETTO[NUMBER_OF_SCALES] = {50.0f, 500.0f};
+const float BRUTTO[NUMBER_OF_SCALES] = {100.0f, 1000.0f};
 #define MINIMUM_FILL 1
 #define MAXIMUM_FILL 20
 #define NUMBER_OF_SCALE_READINGS 5
 const String SCALE_NAME[NUMBER_OF_SCALES] = {"Mleko", "Keczup"};
-
 
 //WiFi connection
 char ssid[] = SECRET_SSID;
@@ -36,7 +35,6 @@ int status = WL_IDLE_STATUS;
 #define TIME_OF_DAILY_MESSAGE 16
 WiFiUDP udp;
 EasyNTPClient ntpClient(udp, "pool.ntp.org", POLAND_LOCAL_TIME);
-
 
 //Push
 #define CONNECTION_PORT 80
@@ -63,7 +61,7 @@ void setup() {
     u8g2.begin();
     u8g2.setFont(u8g2_font_ncenB08_tr);
     u8g2.clearBuffer();
-    //connectWithReset();
+    connectWithReset();
     for(int scaleID = 0; scaleID < NUMBER_OF_SCALES; ++scaleID){
         scale[scaleID].begin(LOADCELL_SDA_PIN[scaleID], LOADCELL_SCL_PIN[scaleID]);
         scale[scaleID].set_scale(SCALE_FACTOR[scaleID]);  
@@ -72,14 +70,14 @@ void setup() {
     }  
 }
 
-
 void loop() {
-    u8g2.clearBuffer();  
     checkConnection();
     String pushMessage = "";
     ::checkIfSendPushMessage = false; 
     for(int scaleID = 0; scaleID < NUMBER_OF_SCALES; ++scaleID){
+        nextOledPageForEveryTwoScales(scaleID);
         float currentWeight, currentFill;
+        readWeight(currentWeight, scaleID);
         currentWeight = readWeight(currentWeight, scaleID);
         currentFill = calculateFill(currentWeight, currentFill, scaleID);
         printSerialPortMessage(currentFill, currentWeight, scaleID);
@@ -90,7 +88,6 @@ void loop() {
         checkIfSendFillPushMessage(currentFill, scaleID);
     }
     checkIfSendDailyPushMessage();
-    u8g2.sendBuffer();
     if(checkIfSendPushMessage == true)
         sendPushMessage(pushMessage);
 }
@@ -129,7 +126,7 @@ void checkConnection(){
         int secondLineYAxis = 35;
         u8g2.drawStr(firstLineXAxis, firstLineYAxis,"NO");
         u8g2.drawStr(secondLineXAxis, secondLineYAxis,"WiFi");
-        //connect(connectionAttempt);
+        connect(connectionAttempt);
     }
 }
 
@@ -150,12 +147,19 @@ void resetFlagsAndTimers(int scaleID){
     ::oneHourTimers[scaleID] = 0;
 }
 
+void nextOledPageForEveryTwoScales(int scaleID){
+    if(scaleID % 2 == 0){
+        delay(3000);
+        u8g2.clearBuffer();
+    }
+}
+
 float readWeight(float currentWeight, int scaleID){
     float temporaryWeight = 0.0f;
     while(true){
         currentWeight = scale[scaleID].get_units(NUMBER_OF_SCALE_READINGS) * 1000;
         int equal = currentWeight - temporaryWeight;
-        if(fabs(equal) < 2)
+        if(fabs(equal) < 5)
             break;
         temporaryWeight = currentWeight;
     }
@@ -163,7 +167,7 @@ float readWeight(float currentWeight, int scaleID){
 }
 
 float calculateFill(float currentWeight, float currentFill, int scaleID){ 
-    currentFill = ((currentWeight - (brutto[scaleID] - netto[scaleID])) * 100) / netto[scaleID];
+    currentFill = ((currentWeight - (BRUTTO[scaleID] - NETTO[scaleID])) * 100) / NETTO[scaleID];
     return currentFill;
 }
 
@@ -179,9 +183,9 @@ void printSerialPortMessage(float currentFill, float currentWeight, int scaleID)
 
 void printOledMessage(float currentFill, float currentWeight, int scaleID){
     int firstLineXAxis = 0;
-    int firstLineYAxis = scaleID*30+10;
+    int firstLineYAxis = (scaleID % 2)*30+10;
     int secondLineXAxis = 45;
-    int secondLineYAxis = scaleID*30+20;
+    int secondLineYAxis = (scaleID % 2)*30+20;
     String oledMessageFirstLine = String(SCALE_NAME[scaleID]);
     oledMessageFirstLine += ": ";
     String oledMessageSecondLine = "";
@@ -197,6 +201,8 @@ void printOledMessage(float currentFill, float currentWeight, int scaleID){
     u8g2.print(oledMessageFirstLine);
     u8g2.setCursor(secondLineXAxis, secondLineYAxis);
     u8g2.print(oledMessageSecondLine);
+    if(scaleID % 2 == 1 || scaleID == NUMBER_OF_SCALES - 1)
+            u8g2.sendBuffer();
 }
 
 String preparePushMessage(String pushMessage, float currentFill, int scaleID){
@@ -289,4 +295,3 @@ void printTime(){
 void softReset(){
     asm volatile ("  jmp 0");
 }
-  

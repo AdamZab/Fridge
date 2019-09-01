@@ -11,16 +11,16 @@
 
 //Scales
 const int NUMBER_OF_SCALES = 2;
-const char LOADCELL_SDA_PIN[NUMBER_OF_SCALES] = {6, 11};
-const char LOADCELL_SCL_PIN[NUMBER_OF_SCALES] = {5, 10};
+const char LOADCELL_SDA_PIN[NUMBER_OF_SCALES] = {3, 5};
+const char LOADCELL_SCL_PIN[NUMBER_OF_SCALES] = {2, 4};
 const long SCALE_FACTOR[NUMBER_OF_SCALES] = {381410, 393860};
-HX711 scale[NUMBER_OF_SCALES];
 const float NETTO[NUMBER_OF_SCALES] = {50.0f, 500.0f};
 const float BRUTTO[NUMBER_OF_SCALES] = {100.0f, 1000.0f};
 #define MINIMUM_FILL 1
 #define MAXIMUM_FILL 20
 #define NUMBER_OF_SCALE_READINGS 5
 const String SCALE_NAME[NUMBER_OF_SCALES] = {"Mleko", "Keczup"};
+HX711 scale[NUMBER_OF_SCALES];
 
 //WiFi connection
 char ssid[] = SECRET_SSID;
@@ -61,7 +61,7 @@ void setup() {
     u8g2.begin();
     u8g2.setFont(u8g2_font_ncenB08_tr);
     u8g2.clearBuffer();
-    connectWithReset();
+    //connectWithReset();
     for(int scaleID = 0; scaleID < NUMBER_OF_SCALES; ++scaleID){
         scale[scaleID].begin(LOADCELL_SDA_PIN[scaleID], LOADCELL_SCL_PIN[scaleID]);
         scale[scaleID].set_scale(SCALE_FACTOR[scaleID]);  
@@ -71,7 +71,6 @@ void setup() {
 }
 
 void loop() {
-    checkConnection();
     String pushMessage = "";
     ::checkIfSendPushMessage = false; 
     for(int scaleID = 0; scaleID < NUMBER_OF_SCALES; ++scaleID){
@@ -81,6 +80,7 @@ void loop() {
         currentWeight = readWeight(currentWeight, scaleID);
         currentFill = calculateFill(currentWeight, currentFill, scaleID);
         printSerialPortMessage(currentFill, currentWeight, scaleID);
+        checkConnection();
         printOledMessage(currentFill, currentWeight, scaleID);
         pushMessage = preparePushMessage(pushMessage, currentFill, scaleID);
         startOneHourTimerIfEmpty(currentFill,  scaleID);
@@ -117,19 +117,6 @@ void connectWithReset(){
     }
 }
  
-void checkConnection(){
-    if(status != WL_CONNECTED){
-        int connectionAttempt = 1;
-        int firstLineXAxis = 105;
-        int firstLineYAxis = 25;
-        int secondLineXAxis = 100;
-        int secondLineYAxis = 35;
-        u8g2.drawStr(firstLineXAxis, firstLineYAxis,"NO");
-        u8g2.drawStr(secondLineXAxis, secondLineYAxis,"WiFi");
-        connect(connectionAttempt);
-    }
-}
-
 void connect(int connectionAttempt){
     String attemptMessage = "Attempting to connect to WPA SSID: ";
     attemptMessage += ssid;
@@ -179,6 +166,19 @@ void printSerialPortMessage(float currentFill, float currentWeight, int scaleID)
     serialPortMessage += String(currentWeight);
     serialPortMessage += "g";
     Serial.println(serialPortMessage);
+}
+
+void checkConnection(){
+    if(status != WL_CONNECTED){
+        int connectionAttempt = 1;
+        int firstLineXAxis = 105;
+        int firstLineYAxis = 25;
+        int secondLineXAxis = 100;
+        int secondLineYAxis = 35;
+        u8g2.drawStr(firstLineXAxis, firstLineYAxis,"NO");
+        u8g2.drawStr(secondLineXAxis, secondLineYAxis,"WiFi");
+        connect(connectionAttempt);
+    }
 }
 
 void printOledMessage(float currentFill, float currentWeight, int scaleID){

@@ -61,7 +61,7 @@ void setup() {
     u8g2.begin();
     u8g2.setFont(u8g2_font_ncenB08_tr);
     u8g2.clearBuffer();
-    //connectWithReset();
+    connectWithReset();
     for(int scaleID = 0; scaleID < NUMBER_OF_SCALES; ++scaleID){
         scale[scaleID].begin(LOADCELL_SDA_PIN[scaleID], LOADCELL_SCL_PIN[scaleID]);
         scale[scaleID].set_scale(SCALE_FACTOR[scaleID]);  

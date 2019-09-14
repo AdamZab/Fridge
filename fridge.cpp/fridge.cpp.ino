@@ -80,7 +80,6 @@ void loop() {
         currentWeight = readWeight(currentWeight, scaleID);
         currentFill = calculateFill(currentWeight, currentFill, scaleID);
         printSerialPortMessage(currentFill, currentWeight, scaleID);
-        checkConnection();
         printOledMessage(currentFill, currentWeight, scaleID);
         pushMessage = preparePushMessage(pushMessage, currentFill, scaleID);
         startOneHourTimerIfEmpty(currentFill,  scaleID);
@@ -88,6 +87,7 @@ void loop() {
         checkIfSendFillPushMessage(currentFill, scaleID);
     }
     checkIfSendDailyPushMessage();
+    checkConnection();
     if(checkIfSendPushMessage == true)
         sendPushMessage(pushMessage);
 }
@@ -168,19 +168,6 @@ void printSerialPortMessage(float currentFill, float currentWeight, int scaleID)
     Serial.println(serialPortMessage);
 }
 
-void checkConnection(){
-    if(status != WL_CONNECTED){
-        int connectionAttempt = 1;
-        int firstLineXAxis = 105;
-        int firstLineYAxis = 25;
-        int secondLineXAxis = 100;
-        int secondLineYAxis = 35;
-        u8g2.drawStr(firstLineXAxis, firstLineYAxis,"NO");
-        u8g2.drawStr(secondLineXAxis, secondLineYAxis,"WiFi");
-        connect(connectionAttempt);
-    }
-}
-
 void printOledMessage(float currentFill, float currentWeight, int scaleID){
     int firstLineXAxis = 0;
     int firstLineYAxis = (scaleID % 2)*30+10;
@@ -256,6 +243,19 @@ bool checkIfSendFillPushMessage(float currentFill, int scaleID){
         printTime();
     }
 } 
+
+void checkConnection(){
+    if(status != WL_CONNECTED){
+        int connectionAttempt = 1;
+        int firstLineXAxis = 105;
+        int firstLineYAxis = 25;
+        int secondLineXAxis = 100;
+        int secondLineYAxis = 35;
+        u8g2.drawStr(firstLineXAxis, firstLineYAxis,"NO");
+        u8g2.drawStr(secondLineXAxis, secondLineYAxis,"WiFi");
+        connect(connectionAttempt);
+    }
+}
 
 void sendPushMessage(String pushMessage){
     WiFiClient client;

@@ -1,25 +1,23 @@
 //Libraries
 #include "HX711.h"
-#include <SPI.h>
 #include <WiFiNINA.h>
 #include "arduino_secrets.h"
 #include <EasyNTPClient.h>
 #include <WiFiUdp.h>
 #include <Arduino.h>
 #include <U8g2lib.h>
-#include <Vector.h>
 
 //Scales
-const int NUMBER_OF_SCALES = 2;
-const char LOADCELL_SDA_PIN[NUMBER_OF_SCALES] = {3, 5};
-const char LOADCELL_SCL_PIN[NUMBER_OF_SCALES] = {2, 4};
-const long SCALE_FACTOR[NUMBER_OF_SCALES] = {381410, 393860};
-const float NETTO[NUMBER_OF_SCALES] = {50.0f, 500.0f};
-const float BRUTTO[NUMBER_OF_SCALES] = {100.0f, 1000.0f};
+const int NUMBER_OF_SCALES = 5;
+const char LOADCELL_SDA_PIN[NUMBER_OF_SCALES] = {3, 5, 7, 9, 11};
+const char LOADCELL_SCL_PIN[NUMBER_OF_SCALES] = {2, 4, 6, 8, 12};
+const long SCALE_FACTOR[NUMBER_OF_SCALES] = {381410, 393860, 0, 0 ,0};
+const float NETTO[NUMBER_OF_SCALES] = {50.0f, 500.0f, 0.0f, 0.0f, 0.0f};
+const float BRUTTO[NUMBER_OF_SCALES] = {100.0f, 1000.0f, 0.0f, 0.0f, 0.0f};
 #define MINIMUM_FILL 1
 #define MAXIMUM_FILL 20
 #define NUMBER_OF_SCALE_READINGS 5
-const String SCALE_NAME[NUMBER_OF_SCALES] = {"Mleko", "Keczup"};
+const String SCALE_NAME[NUMBER_OF_SCALES] = {"Mleko", "Keczup", "Test 3", "Test4", "Test5"};
 HX711 scale[NUMBER_OF_SCALES];
 
 //WiFi connection
@@ -211,36 +209,31 @@ void checkIfSendDailyPushMessage(){
     if((ntpClient.getUnixTime()  % SECONDS_IN_ONE_DAY) / SECONDS_IN_ONE_HOUR == TIME_OF_DAILY_MESSAGE && dailyPushMessageSent == false){
         ::dailyPushMessageSent = true;
         ::checkIfSendPushMessage = true;
-        Serial.print("Daily message send at ");
-        printTime();
     }
 }  
 
 void startOneHourTimerIfEmpty(float currentFill, int scaleID){
-    if(currentFill < MINIMUM_FILL &&  oneHourTimers[scaleID] == 0){
+    if(currentFill <= MINIMUM_FILL &&  oneHourTimers[scaleID] == 0){
         ::oneHourTimers[scaleID] = ntpClient.getUnixTime() + SECONDS_IN_ONE_HOUR;
         ::fillPushMessageSentFlags[scaleID] = false;
-        Serial.print("One hour timer started at ");
-        printTime();
+    }
+    else if(currentFill > MINIMUM_FILL){
+        ::oneHourTimers[scaleID] = 0;
+        ::oneHourPushMessageSentFlags[scaleID] = false;
     }
 }
 
 void checkIfSendEmptyPushMessage(float currentFill, int scaleID){
-    if(currentFill < MINIMUM_FILL && oneHourPushMessageSentFlags[scaleID] == false && oneHourTimers[scaleID] < ntpClient.getUnixTime()){
+    if(currentFill <= MINIMUM_FILL && oneHourPushMessageSentFlags[scaleID] == false && oneHourTimers[scaleID] <= ntpClient.getUnixTime()){
         ::oneHourPushMessageSentFlags[scaleID] = true;
         ::checkIfSendPushMessage = true;
-        Serial.print("Empty message send at ");
-        printTime();
     }
 }   
  
 bool checkIfSendFillPushMessage(float currentFill, int scaleID){
     if(currentFill > MINIMUM_FILL && currentFill < MAXIMUM_FILL && fillPushMessageSentFlags[scaleID] == false){
         ::fillPushMessageSentFlags[scaleID] = true;
-        ::oneHourPushMessageSentFlags[scaleID] = false;
         ::checkIfSendPushMessage = true;
-        Serial.print("Fill message send at ");
-        printTime();
     }
 } 
 
@@ -275,21 +268,6 @@ void sendPushMessage(String pushMessage){
     client.print(postStr);
   }
   client.stop();
-}
-
-void printTime(){
-    String timeMessage = "The time is ";
-    timeMessage += (ntpClient.getUnixTime()  % SECONDS_IN_ONE_DAY) / SECONDS_IN_ONE_HOUR;
-    timeMessage += ":";
-    if (((ntpClient.getUnixTime() % SECONDS_IN_ONE_HOUR) / SECONDS_IN_ONE_MINUTE) < 10)
-        timeMessage += "0";
-    timeMessage += (ntpClient.getUnixTime()  % SECONDS_IN_ONE_HOUR) / SECONDS_IN_ONE_MINUTE;
-    timeMessage += ":";
-    if ((ntpClient.getUnixTime() % SECONDS_IN_ONE_MINUTE) < 10) {
-      timeMessage += "0";
-    }
-    timeMessage += ntpClient.getUnixTime() % SECONDS_IN_ONE_MINUTE;
-    Serial.println(timeMessage); 
 }
 
 void softReset(){

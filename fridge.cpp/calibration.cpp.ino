@@ -16,10 +16,10 @@ void setup() {
     } 
 }
 
-calibration() {
+void loop() {
     for(int scaleID = 0; scaleID < NUMBER_OF_SCALES; ++scaleID){
         float currentWeight = scale[scaleID].get_units(NUMBER_OF_SCALE_READINGS);
-        float scaleFactor=(currentWeight/KNOWN_WEIGHT_IN_KG = 0.145;);
+        float scaleFactor=(currentWeight/KNOWN_WEIGHT_IN_KG);
         String serialPortMessage = "Scale factor for scale ";
         serialPortMessage += String(scaleID);
         serialPortMessage += ": ";

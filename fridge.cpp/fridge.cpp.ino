@@ -17,7 +17,7 @@ const float BRUTTO[NUMBER_OF_SCALES] = {100.0f, 1000.0f, 0.0f, 0.0f, 0.0f};
 #define MINIMUM_FILL 1
 #define MAXIMUM_FILL 20
 #define NUMBER_OF_SCALE_READINGS 5
-const String SCALE_NAME[NUMBER_OF_SCALES] = {"Mleko", "Keczup", "Test 3", "Test4", "Test5"};
+const String SCALE_NAME[NUMBER_OF_SCALES] = {"Mleko", "Keczup", "Test 3", "Test 4", "Test 5"};
 HX711 scale[NUMBER_OF_SCALES];
 
 //WiFi connection

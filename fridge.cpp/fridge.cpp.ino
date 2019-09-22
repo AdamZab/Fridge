@@ -77,6 +77,7 @@ void loop() {
         readWeight(currentWeight, scaleID);
         currentWeight = readWeight(currentWeight, scaleID);
         currentFill = calculateFill(currentWeight, currentFill, scaleID);
+        checkConnection();
         printSerialPortMessage(currentFill, currentWeight, scaleID);
         printOledMessage(currentFill, currentWeight, scaleID);
         pushMessage = preparePushMessage(pushMessage, currentFill, scaleID);
@@ -85,7 +86,6 @@ void loop() {
         checkIfSendFillPushMessage(currentFill, scaleID);
     }
     checkIfSendDailyPushMessage();
-    checkConnection();
     if(checkIfSendPushMessage == true)
         sendPushMessage(pushMessage);
 }
@@ -101,7 +101,7 @@ void connectWithReset(){
     u8g2.sendBuffer();
     if (WiFi.status() == WL_NO_MODULE) 
         Serial.println("Communication with WiFi module failed!\n");
-    while (status != WL_CONNECTED) {
+    while (WiFi.status() != WL_CONNECTED) {
         if (connectionAttempt == 11){
             u8g2.clearBuffer();
             u8g2.drawStr(firstLineXAxis,firstLineYAxis,"Connection failed");
@@ -113,6 +113,9 @@ void connectWithReset(){
         connect(connectionAttempt);
         ++connectionAttempt;
     }
+    u8g2.clearBuffer();
+    u8g2.drawStr(firstLineXAxis,firstLineYAxis,"Connected!!!");
+    u8g2.sendBuffer();
 }
  
 void connect(int connectionAttempt){
@@ -238,7 +241,7 @@ bool checkIfSendFillPushMessage(float currentFill, int scaleID){
 } 
 
 void checkConnection(){
-    if(status != WL_CONNECTED){
+    if(WiFi.status() != WL_CONNECTED){
         int connectionAttempt = 1;
         int firstLineXAxis = 105;
         int firstLineYAxis = 25;

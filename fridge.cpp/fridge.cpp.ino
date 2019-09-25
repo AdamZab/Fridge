@@ -74,7 +74,6 @@ void loop() {
     for(int scaleID = 0; scaleID < NUMBER_OF_SCALES; ++scaleID){
         nextOledPageForEveryTwoScales(scaleID);
         float currentWeight, currentFill;
-        readWeight(currentWeight, scaleID);
         currentWeight = readWeight(currentWeight, scaleID);
         currentFill = calculateFill(currentWeight, currentFill, scaleID);
         checkConnection();

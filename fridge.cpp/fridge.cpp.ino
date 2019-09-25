@@ -12,12 +12,12 @@ const int NUMBER_OF_SCALES = 5;
 const char LOADCELL_SDA_PIN[NUMBER_OF_SCALES] = {3, 5, 7, 9, 11};
 const char LOADCELL_SCL_PIN[NUMBER_OF_SCALES] = {2, 4, 6, 8, 12};
 const long SCALE_FACTOR[NUMBER_OF_SCALES] = {381410, 393860, 0, 0 ,0};
-const float NETTO[NUMBER_OF_SCALES] = {50.0f, 500.0f, 0.0f, 0.0f, 0.0f};
-const float BRUTTO[NUMBER_OF_SCALES] = {100.0f, 1000.0f, 0.0f, 0.0f, 0.0f};
+const float NETTO[NUMBER_OF_SCALES] = {500.0f, 500.0f, 0.0f, 0.0f, 0.0f};
+const float BRUTTO[NUMBER_OF_SCALES] = {560.0f, 560.0f, 0.0f, 0.0f, 0.0f};
 #define MINIMUM_FILL 1
 #define MAXIMUM_FILL 20
 #define NUMBER_OF_SCALE_READINGS 5
-const String SCALE_NAME[NUMBER_OF_SCALES] = {"Mleko", "Keczup", "Test 3", "Test 4", "Test 5"};
+const String SCALE_NAME[NUMBER_OF_SCALES] = {"Woda 1", "Woda 2", "Test 3", "Test 4", "Test 5"};
 HX711 scale[NUMBER_OF_SCALES];
 
 //WiFi connection
